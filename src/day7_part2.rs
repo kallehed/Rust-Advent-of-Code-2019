@@ -1,6 +1,8 @@
 use std::collections::HashSet;
+use std::sync::mpsc::{self, Sender, Receiver};
+use std::thread::{self, JoinHandle};
 
-fn calc_intcode(mut codes: Vec<i32>, inputs: &[i32; 2]) -> i32
+fn calc_intcode(mut codes: Vec<i32>, first_input: i32, tx: Sender<i32>, rx: Receiver<i32>, result_tx: Sender<i32>)
 {
     let mut i: usize = 0;
     let mut inputs_given = 0;
@@ -57,23 +59,31 @@ fn calc_intcode(mut codes: Vec<i32>, inputs: &[i32; 2]) -> i32
                         panic!("very invalid: {}", code);
                     }
                 }
-
             }
-            3 => { // take input 5 and store it at next
+            3 => { // take input and store it at next
                 let pos = codes[i + 1];
-                codes[pos as usize] = inputs[inputs_given];
+                //println!("want input");
+                if inputs_given == 0 {
+                    codes[pos as usize] = first_input;
+                } else {
+                    codes[pos as usize] = rx.recv().unwrap();
+                }
+                
                 inputs_given += 1;
                 i += 2;
             }
             4 => { // output value at position
                 let pos = codes[i + 1];
                 //println!("Output: {}", codes[pos as usize]);
-                return codes[pos as usize];
-                //i += 2;
+                //println!("Sent!");
+                tx.send(codes[pos as usize]); // should not do anything if this fails.
+                result_tx.send(codes[pos as usize]).unwrap();
+                i += 2;
             }
-            /*99 => {
+            99 => {
+                //println!("Done");
                 break;
-            }*/
+            }
             _ => {
                 panic!("Wrong instruction: {}", code);
             }
@@ -83,17 +93,38 @@ fn calc_intcode(mut codes: Vec<i32>, inputs: &[i32; 2]) -> i32
 
 fn thruster_signal(codes: &Vec<i32>, phase_setting: [i32; 5]) -> i32
 {
-    let mut input = 0;
-    for setting in phase_setting
+    let (result_tx, result_rx) = mpsc::channel();
+
+    let mpscs = [(); 5].map(|_| mpsc::channel());
+
+    let (txs, rxs): (Vec<_>, Vec<_>) = mpscs.into_iter().unzip();
+
+    txs[0].send(0).unwrap();
+
+    let mut handles = vec![];
+
+    for (i, rx) in rxs.into_iter().enumerate()
     {
-        let inputs = [setting, input];
-        input = calc_intcode((*codes).clone(), &inputs);
+        let c = codes.clone();
+        let inp = phase_setting[i];
+        let res_tx = result_tx.clone();
+        let tx = txs[(i+1)%5].clone();
+        handles.push(thread::spawn(move || {
+            calc_intcode(c, inp, tx, rx, res_tx);
+        }));
     }
-    input
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+    drop(result_tx);
+
+    result_rx.iter().last().unwrap()
+    
 }
 
 
-pub fn part_1()
+pub fn part_2()
 {
     let mut codes: Vec<i32>;
     {
@@ -107,26 +138,32 @@ pub fn part_1()
 
     let mut biggest = 0;
 
-    for n0 in 0..=4 {
-        for n1 in 0..=4 {
-            for n2 in 0..=4 {
-                for n3 in 0..=4 {
-                    for n4 in 0..=4 {
+    for n0 in 5..=9 {
+        for n1 in 5..=9 {
+            for n2 in 5..=9 {
+                for n3 in 5..=9 {
+                    for n4 in 5..=9 {
                         let setting = [n0,n1,n2,n3,n4];
-                        let sig = thruster_signal(&codes, setting);
-                        if sig > biggest && {
+                        let unique = {
                             let mut h = HashSet::new();
                             for sett in setting {h.insert(sett);}
                             h.len() == 5
-                        } {
-                            biggest = sig;
-                            println!("val: {}, matric: {:?}", biggest, setting);
+                        };
+                        if unique
+                        {
+                            let sig = thruster_signal(&codes, setting);
+                            if sig > biggest  {
+                                biggest = sig;
+                                println!("val: {}, matric: {:?}", biggest, setting);
+                            }
                         }
                     }
                 }
             }
         }
     }
+    //println!("val: {}", thruster_signal(&codes, [9,8,7,6,5]));
+
     println!("signal: {}", biggest);
     
 
