@@ -91,7 +91,7 @@ fn calc_intcode(mut codes: Vec<i32>, first_input: i32, tx: Sender<i32>, rx: Rece
     }
 }
 
-fn thruster_signal(codes: &Vec<i32>, phase_setting: [i32; 5]) -> i32
+fn thruster_signal(codes: &[i32], phase_setting: [i32; 5]) -> i32
 {
     let (result_tx, result_rx) = mpsc::channel();
 
@@ -105,11 +105,11 @@ fn thruster_signal(codes: &Vec<i32>, phase_setting: [i32; 5]) -> i32
 
     for (i, rx) in rxs.into_iter().enumerate()
     {
-        let c = codes.clone();
+        let c = codes.to_owned();
         let inp = phase_setting[i];
         let res_tx = result_tx.clone();
         let tx = txs[(i+1)%5].clone();
-        handles.push(thread::spawn(move || {
+        handles.push(thread::spawn( move || {
             calc_intcode(c, inp, tx, rx, res_tx);
         }));
     }
