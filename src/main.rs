@@ -1,7 +1,7 @@
-#![allow(dead_code, unused_variables, unused_mut, unused_imports, non_snake_case, unused_assignments)]
+//#![allow(dead_code, unused_variables, unused_mut, unused_imports, non_snake_case, unused_assignments)]
 
-mod day8;
-use day8::*;
+mod day9;
+use day9::*;
 
 pub fn main() {
     println!("Hello, world!");
