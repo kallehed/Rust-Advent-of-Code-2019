@@ -91,12 +91,11 @@ pub fn part_2() // x: 20, y: 21 is the best
         }
     }
     println!("Map: {:?}", map);
-    let mut highest_visible = 0;
 
     let mut angle = PI/2.0; // angle, which will be moved to the next asteroid(plus a little extra) over and over again
 
-    let SHOOT_X = 20; // where the laser is placed
-    let SHOOT_Y = 21; 
+    const SHOOT_X: usize = 20; // where the laser is placed
+    const SHOOT_Y: usize = 21; 
 
     let mut destroyed = 0;
 
