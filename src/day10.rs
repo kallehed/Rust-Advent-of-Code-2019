@@ -1,26 +1,10 @@
+use std::f64::{consts::PI};
 
-#[derive(Debug, PartialEq)]
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 enum Space {
     Empty,
     Asteroid,
-}
-
-fn is_prime<T>(num: T) -> bool
-    where T: Copy + std::ops::Mul<u64, Output = u64> + std::cmp::PartialOrd<u64> + std::cmp::PartialEq<u64> + std::ops::Rem<u64>, <T as std::ops::Rem<u64>>::Output: PartialEq<u64>
-{
-    if num <= 3u64 {true}
-    else
-    {
-        if (num % 2) == 0u64 {return false;}
-
-        for i in 5u64.. {
-            if i == (num*164) {return true;}
-            if num % i == 0 {
-                return false;
-            }
-        }
-        true
-    }
 }
 
 pub fn part_1() 
@@ -33,7 +17,7 @@ pub fn part_1()
         for line in contents.lines()
         {
             map.push(Vec::new());
-            for (idx, c) in line.as_bytes().iter().enumerate()
+            for c in line.as_bytes()
             {
                 map.last_mut().unwrap().push(match c {b'.' => Space::Empty, b'#' => Space::Asteroid, _ => panic!("Wrong character!")});
             }
@@ -41,62 +25,122 @@ pub fn part_1()
     }
     println!("Map: {:?}", map);
     let map = map;
-    let mut highest_view_count = 0;
-
-    let highest_y = map.len() as isize;
-    let highest_x = map[0].len() as isize;
+    let mut highest_visible = 0;
 
     for y in 0..map.len() {
-        for x in 0..map[y].len() {
-            //let y = 13;
-            //let x = 11;
-            if map[y][x] == Space::Asteroid
-            {
-                let mut asteroid_count = 0;
-                for dy in (-highest_y)..=highest_y {
-                    for dx in (-highest_x)..=highest_x {
-                        let okay = 'b: {
-                            for i in 2..=10 {
-                                if (dy%i == 0) && (dx%i == 0) {break 'b false;}
-                            }
-                            break 'b true;
-                        };
-                        if okay {
-                            if dx == 0 && dy == 0 {
-                                println!("Wird:");
-                            }
+        for x in 0..map[0].len() {
+            if map[y][x] == Space::Empty {continue;}
 
-                            //println!("nums: {}, {}", dy, dx);
-                            let mut x = x;
-                            let mut y = y;
+            let mut map = map.clone();
 
-                            loop {
-                                let maybe_x = x.checked_add_signed(dx);
-                                let maybe_y = y.checked_add_signed(dy);
+            for oy in 0..map.len() {
+                for ox in 0..map[0].len() {
+                    if y == oy && x == ox {continue;}
+                    if map[oy][ox] == Space::Empty {continue;}
 
-                                if let (Some(new_x), Some(new_y)) = (maybe_x, maybe_y) {
+                    let dx = ox as isize - x as isize;
+                    let dy = oy as isize - y as isize;
 
-                                    x = new_x;
-                                    y = new_y;
-                                    if y >= map.len() || x >= map[y].len() {break;}
-                                    if map[y][x] == Space::Asteroid {
-                                        asteroid_count += 1;
-                                        break;
-                                    }
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
+                    use gcd::Gcd;
+                    let common_div = dx.unsigned_abs().gcd(dy.unsigned_abs());
+                    let dx = dx / common_div as isize;
+                    let dy = dy / common_div as isize;
+
+                    let mut nx = ox as isize;
+                    let mut ny = oy as isize;
+
+                    loop // go behind and mark spots that can't be seen
+                    {
+                        nx += dx;
+                        ny += dy;
+                        if  nx < 0 || ny < 0 || ny >= map.len() as isize || nx >= map[0].len() as isize {break;}
+                        map[ny as usize][nx as usize] = Space::Empty;
                     }
                 }
-                if asteroid_count > highest_view_count {
-                    println!("Asteroids: {}, x: {}, y: {}", asteroid_count, x, y);
-                    highest_view_count = asteroid_count;
+            }
+            // count asteroids left
+            let mut visible = 0;
+            for oy in 0..map.len() {
+                for ox in 0..map[0].len() {
+                    if y == oy && x == ox {continue;}
+                    if map[oy][ox] == Space::Asteroid {visible += 1;}
                 }
+            }
+            println!("x: {}, y: {}, Visible: {}",x, y, visible);
+            highest_visible = std::cmp::max(highest_visible, visible);
+        }
+    }
+    println!("Highest: {}", highest_visible);
+
+}
+
+pub fn part_2() // x: 20, y: 21 is the best
+{
+    let mut map: Vec<Vec<Space>> = Vec::new();
+    {
+        let contents = std::fs::read_to_string("src/day10.txt")
+                .expect("Should have been able to read the file");
+        
+        for line in contents.lines()
+        {
+            map.push(Vec::new());
+            for c in line.as_bytes()
+            {
+                map.last_mut().unwrap().push(match c {b'.' => Space::Empty, b'#' => Space::Asteroid, _ => panic!("Wrong character!")});
             }
         }
     }
+    println!("Map: {:?}", map);
+    let mut highest_visible = 0;
 
-    println!("Best: {}", highest_view_count);
+    let mut angle = PI/2.0; // angle, which will be moved to the next asteroid(plus a little extra) over and over again
+
+    let SHOOT_X = 20; // where the laser is placed
+    let SHOOT_Y = 21; 
+
+    let mut destroyed = 0;
+
+    loop {
+        // find the closest asteroid to destroy
+        let mut smallest_angle_dif = f64::MAX;
+        let mut distance_of = f64::MAX;
+        let mut best_pos = (usize::MAX,usize::MAX); // x and y
+        for y in 0..map.len() {
+            for x in 0..map[0].len() {
+                if (x == SHOOT_X && y == SHOOT_Y) || map[y][x] == Space::Empty {continue;}
+                let rel_x = (x as f64) - (SHOOT_X as f64);
+                let rel_y = (SHOOT_Y as f64) - (y as f64); // array coordinates are upside down to math coordinates
+
+                let aster_angle = f64::atan2(rel_y, rel_x);
+                let mut rel_angle = angle - aster_angle;
+                if rel_angle < 0.0 {rel_angle += std::f64::consts::TAU;}
+                let dif = smallest_angle_dif - rel_angle;
+                let distance = rel_x.abs() + rel_y.abs();
+                if dif.abs() <= f64::EPSILON {
+                    if distance < distance_of {
+                        distance_of = distance;
+                        best_pos = (x, y);
+                    }
+                }
+                else if dif > f64::EPSILON {
+                    smallest_angle_dif = rel_angle;
+                    distance_of = distance;
+                    best_pos = (x, y);
+                }
+            }
+        }
+        angle -= smallest_angle_dif + f64::EPSILON*10.0;
+        if angle < (-std::f64::consts::PI) {angle += std::f64::consts::TAU;}
+
+        // destroy asteroid
+        map[best_pos.1][best_pos.0] = Space::Empty;
+        destroyed += 1;
+
+        println!("Destroyed {}: x:{}, y:{}", destroyed, best_pos.0, best_pos.1);
+        if destroyed == 200 {
+            println!("Result: {}", (100 * best_pos.0) + best_pos.1);
+            break;
+        }
+        
+    }
 }

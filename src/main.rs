@@ -6,7 +6,7 @@ use day10::*;
 pub fn main() {
     println!("Hello, world!");
 
-    part_1();
-    //part_2();
+    //part_1();
+    part_2();
 }
 
