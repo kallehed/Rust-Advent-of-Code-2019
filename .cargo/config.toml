@@ -1,2 +1,2 @@
 [build]         # Modify profile settings via config.
-rustflags = ["-C target-cpu=native"]
+rustflags = ["-Ctarget-cpu=native"]
