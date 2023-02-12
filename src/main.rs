@@ -3,8 +3,8 @@
 
 //mod day18_part2;
 //use day18_part2::*;
-mod day21;
-use day21::*;
+mod day22;
+use day22::*;
 
 pub fn main()
 {
