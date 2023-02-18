@@ -39,8 +39,42 @@ pub fn part_1() {
     });
 }
 
-fn asd(arr: [(String, String); 50]) {
-    let (x, y): (Vec<String>, Vec<String>) = arr.into_iter().unzip();
+fn asd(mut arr: [(Sender<i64>, String); 50]) {
+    //let first: [_; 50] = std::array::from_fn(|idx| std::mem::take(&mut arr[idx].0));
+}
+
+#[derive(Debug)]
+struct Kalle {
+    i: i32,
+}
+
+impl Drop for Kalle {
+    fn drop(&mut self) {
+        println!("dropped: {}", self.i);
+    }
+}
+
+pub fn part_3()
+{
+    let a = [(String::from("asd"),Kalle{i:0}), (String::from("kalle"), Kalle{i:1})];
+
+    let _b = unzip_array_of_tuple(a);
+}
+
+fn unzip_array_of_tuple<T1, T2, const N: usize>(arr: [(T1,T2);N]) -> ([T1;N], [T2;N])
+{
+    use std::mem::{MaybeUninit, self};
+    
+    let mut first: [MaybeUninit<T1>; N] = unsafe {MaybeUninit::uninit().assume_init()};
+    let mut second: [MaybeUninit<T2>; N] = unsafe {MaybeUninit::uninit().assume_init()};
+
+    for (idx, a) in arr.into_iter().enumerate() {
+        first[idx] = MaybeUninit::new(a.0);
+        second[idx] = MaybeUninit::new(a.1);
+    }
+    
+    // should be safe, as MaybeUninit doesn't have Drop
+    unsafe { (mem::transmute_copy(&first), mem::transmute_copy(&second)) }
 }
 
 fn compute(mut codes: Vec<i64>, ntwk_addr: i64, txs: [Sender<(i64, i64)>; 50], rx: Receiver<(i64,i64)>)
