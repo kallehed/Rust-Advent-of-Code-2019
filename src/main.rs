@@ -3,10 +3,10 @@
 
 //mod day18_part2;
 //use day18_part2::*;
-mod day24;
-use day24::*;
+mod day25;
+use day25::*;
 
 pub fn main()
 {
-    part_2();
+    part_1();
 }
